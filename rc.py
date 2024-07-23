@@ -5,6 +5,7 @@ from scipy.sparse import linalg
 from sklearn.linear_model import Ridge
 from dataclasses import dataclass
 
+
 @dataclass
 class Hyperparameters:
     # RC
@@ -54,34 +55,35 @@ def _make_input_matrix(h: Hyperparameters):
     return W_in
 
 
-def _run_open_loop(A, W_in, input, h: Hyperparameters):
+def _run_open_loop(A, W_in, input_data, h: Hyperparameters):
     """TODO"""
     res_states = np.zeros((h.train_length, h.N))
     for t in range(h.train_length - 1):
         res_states[t+1] = (1 - h.leakage) * res_states[t] \
                           + h.leakage * h.activation_func(A @ res_states[t] \
-                                                          + W_in @ input[t+1] \
+                                                          + W_in @ input_data[t+1] \
                                                           + h.bias)
     return res_states
 
 
-def _fit_output_weights(res_states, data, h: Hyperparameters):
+def _fit_output_weights(res_states, targets, h: Hyperparameters):
     """TODO"""
-    assert res_states.shape[0] == h.train_length
-    res_states_for_fit = res_states[h.discard_transient_length:-1]
-    targets_for_fit = data[h.discard_transient_length+1:h.train_length]
     clf = Ridge(alpha=h.beta, fit_intercept=False, solver='cholesky')
-    clf.fit(res_states_for_fit, targets_for_fit)
+    clf.fit(res_states, targets)
     W_out = clf.coef_
     return W_out
 
 
-def train_RC(data, h: Hyperparameters):
+def train_RC(input_data, h: Hyperparameters, train_targets=None):
     """TODO"""
+    if train_targets is None:
+        train_targets = input_data
     A = _make_reservoir(h)
     W_in = _make_input_matrix(h)
-    res_states = _run_open_loop(A, W_in, data, h)
-    W_out = _fit_output_weights(res_states, data, h)
+    res_states = _run_open_loop(A, W_in, input_data, h)
+    res_states_for_fit = res_states[h.discard_transient_length:-1]
+    targets_for_fit = train_targets[h.discard_transient_length+1:h.train_length]
+    W_out = _fit_output_weights(res_states_for_fit, targets_for_fit, h)
     return W_out, A, W_in, res_states
 
 
