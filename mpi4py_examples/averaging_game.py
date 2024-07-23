@@ -65,4 +65,4 @@ for t in range(1, sim_length+1):
     my_log[t] = my_number
     print(f'Agent {my_agent_id}, time {t}: My number is {my_number}')
 
-np.savetxt(f'{my_agent_id}.csv', my_log)  # success!
+np.savetxt(f'{my_agent_id}.csv', my_log)  # logs match the result of working the game out by hand!

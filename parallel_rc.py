@@ -5,6 +5,8 @@ To run, first install mpi4py in your conda environment (`conda install -c conda-
 `mpiexec -n 4 python filename.py`
 """
 
+import sys
+
 from mpi4py import MPI
 import numpy as np
 
@@ -25,6 +27,15 @@ q = 2  # number of contiguous grid points per reservoir
 l = 1  # number of spatial points in the contiguous buffer regions
 
 assert Q % q == 0, "Number of grid points is not a multiple of group size"
-assert size >= Q//q, "Number of processes is less than number of grid points"
+g = Q // q  # number of reservoirs needed
+assert size >= g, "Number of processes is less than number of reservoirs needed"
 assert l <= q, "Size of buffer region is too large"
+
+if rank > g:
+    sys.exit(0)
+
+# training data: shape d x Q x T
+
+# my_training_data = training_data[:, ,:]
+
 

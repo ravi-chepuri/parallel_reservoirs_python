@@ -19,7 +19,7 @@ def solve(n_step, tau, sigma=10, beta=8/3, rho=28, init_cond=(0, 1, 1.05), metho
     soln = solve_ivp(lorenz_eqns, (0, t_max), init_cond, args=(sigma, beta, rho),
                  dense_output=True, method=method)
     t = np.linspace(0, t_max, n_step+1)
-    X = soln.sol(t)  # Polynomial interpolation of system state
-    if z_score: X = zscore(X, axis=1)  # z score each of x, y, z separately
-    if discard_transients: X = X[:, int(np.floor(n_step * 0.1)):]
+    X = soln.sol(t).T  # Polynomial interpolation of system state
+    if z_score: X = zscore(X, axis=0)  # z score each of x, y, z separately
+    if discard_transients: X = X[int(np.floor(n_step * 0.1)):]
     return X, t

@@ -7,8 +7,8 @@ def normalized_rms_error(prediction, actual):
     where $||...||$ is the Euclidean norm, $\langle ... \rangle$ is an average over prediction interval 
     (Wikner et al. 2021, p. 14).
     """
-    numerator = np.linalg.norm(prediction - actual, axis=0)
-    denominator = np.sqrt(np.mean(np.linalg.norm(actual, axis=0)**2))
+    numerator = np.linalg.norm(prediction - actual, axis=1)
+    denominator = np.sqrt(np.mean(np.linalg.norm(actual, axis=1)**2))
     return numerator / denominator
 
 
@@ -21,7 +21,7 @@ def valid_time(prediction, actual, prediction_times, threshold=0.9):
     index = np.argmax(err > threshold)
     if index == 0:
         raise Exception('Error never exceeds threshold')
-    return prediction_times[index]  
+    return prediction_times[index]
 
 
 def find_peaks(series, times=None):

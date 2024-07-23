@@ -56,22 +56,22 @@ def _make_input_matrix(h: Hyperparameters):
 
 def _run_open_loop(A, W_in, input, h: Hyperparameters):
     """TODO"""
-    res_states = np.zeros((h.N, h.train_length))
+    res_states = np.zeros((h.train_length, h.N))
     for t in range(h.train_length - 1):
-        res_states[:, t+1] = (1 - h.leakage) * res_states[:, t] \
-                            + h.leakage * h.activation_func(A @ res_states[:, t] \
-                                                            + W_in @ input[:, t+1] \
-                                                            + h.bias)
+        res_states[t+1] = (1 - h.leakage) * res_states[t] \
+                          + h.leakage * h.activation_func(A @ res_states[t] \
+                                                          + W_in @ input[t+1] \
+                                                          + h.bias)
     return res_states
 
 
 def _fit_output_weights(res_states, data, h: Hyperparameters):
     """TODO"""
-    assert res_states.shape[1] == h.train_length
-    res_states_for_fit = res_states[:, h.discard_transient_length:-1]
-    targets_for_fit = data[:, h.discard_transient_length+1:h.train_length]
+    assert res_states.shape[0] == h.train_length
+    res_states_for_fit = res_states[h.discard_transient_length:-1]
+    targets_for_fit = data[h.discard_transient_length+1:h.train_length]
     clf = Ridge(alpha=h.beta, fit_intercept=False, solver='cholesky')
-    clf.fit(res_states_for_fit.T, targets_for_fit.T)
+    clf.fit(res_states_for_fit, targets_for_fit)
     W_out = clf.coef_
     return W_out
 
@@ -87,12 +87,12 @@ def train_RC(data, h: Hyperparameters):
 
 def predict(W_out, A, W_in, training_res_states, h: Hyperparameters):
     """Closed loop prediction"""
-    predictions = np.zeros((h.num_inputs, h.prediction_steps))
-    rt = training_res_states[:, -1]
+    predictions = np.zeros((h.prediction_steps, h.num_inputs))
+    rt = training_res_states[-1]
     for t in range(h.prediction_steps):
-        predictions[:, t] = W_out @ rt
+        predictions[t] = W_out @ rt
         rt = (1 - h.leakage) * rt \
              + h.leakage * h.activation_func(A @ rt \
-                                             + W_in @ predictions[:, t] \
+                                             + W_in @ predictions[t] \
                                              + h.bias)
     return predictions
