@@ -21,4 +21,4 @@ if rank == 2:
 print(f"Process {rank} continues.")
 
 # Finalize the MPI environment
-MPI.Finalize()  # not sure why needed
+# MPI.Finalize()  # not sure why needed
