@@ -1,7 +1,7 @@
 """
 From: https://mpi4py.readthedocs.io/en/latest/tutorial.html
 To run, first install mpi4py in your conda environment (`conda install -c conda-forge mpi4py openmpi`), then run
-`mpiexec -n 4 python numpy_point-to-point.py`
+`mpiexec -n 4 python filename.py`
 """
 
 from mpi4py import MPI
