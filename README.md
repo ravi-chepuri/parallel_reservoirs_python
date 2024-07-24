@@ -2,7 +2,7 @@
 
 A parallelized Python implementation of the parallel reservoir computing architecture, as presented in Pathak et al., 2018, using the `mpi4py` package.
 
-**This is a work in progress!** Currently, the code runs for forecasting the Kuramoto Sivashinsky system but produces poor predictions. The forecasts are reasonable for the first few steps, which I beleive indicates that the code is functioning correctly. However, the predictions quickly lose accuracy and fail to capture the system's climate, which I believe is likely due to poorly chosen hyperparameters.
+**This is a work in progress!** Currently, the code runs for forecasting the Kuramoto Sivashinsky system but produces poor predictions. The forecasts are reasonable for the first few steps, which I believe indicates that the code is functioning correctly. However, the predictions quickly lose accuracy and fail to capture the system's climate, which I believe is likely due to poorly chosen hyperparameters.
 
 ## Usage
 
