@@ -18,9 +18,11 @@ rank = comm.Get_rank()  # process number
 size = comm.Get_size()  # total number of processes
 
 # data
-data = None  # TODO
+data = np.load('kuramoto_sivashinsky/trajectories/trajectory_0.npy')
+discard_system_transient_length = 500
+data = data[discard_system_transient_length:]
 T, Q, d = data.shape  # number of time steps, number of spatial 1D grid points, dimension of system at each grid point
-num_training_timesteps = 10000
+num_training_timesteps = 20000
 train_data, test_data = np.vsplit(data, [num_training_timesteps])
 
 # parallel RC specifications
@@ -38,11 +40,12 @@ if rank >= g: sys.exit(0)  # close unnecessary processes
 new_group = comm.group.Incl(range(g))
 new_comm = comm.Create_group(new_group)
 reservoir_id = new_comm.Get_rank()
+assert reservoir_id < g
 assert new_comm.Get_size() == g
 
 ## Training ##
 grid_points = np.arange(reservoir_id * q, (reservoir_id+1) * q)  # q grid points that reservoir predicts
-input_grid_points = np.arange(reservoir_id * q - l, (reservoir_id+1) * q + l)  # q+2l grid points that are used as input
+input_grid_points = np.arange(reservoir_id * q - l, (reservoir_id+1) * q + l) % Q  # q+2l grid points used as input
 train_inputs = train_data[:, input_grid_points, :]
 train_targets = train_data[:, grid_points, :]
 # flatten the system dimensions so now every d entries in the 2nd dimension is a grid point
@@ -50,14 +53,17 @@ train_inputs = train_inputs.reshape((-1, (q+2*l)*d))
 train_targets = train_targets.reshape((-1, q*d))
 
 h = rc.Hyperparameters(num_inputs=(q+2*l)*d,
-                        N=500, degree=2.6667, sigma=0.5, beta=0.00003, dt=0.02,
-                        train_length=num_training_timesteps, prediction_steps=1000)  # TODO: change these
+                       N=1000, degree=3, radius=0.6, leakage=1., bias=0.1, sigma=0.1, beta=0.01, 
+                    #    beta=0.00003,
+                       discard_transient_length=100, activation_func=np.tanh,
+                       dt=0.25,
+                       train_length=num_training_timesteps, prediction_steps=2000)
 
 W_out, A, W_in, training_res_states = rc.train_RC(train_inputs, h, train_targets=train_targets)
 
 ## Forecasting ##
-left_neighbor_id = (reservoir_id + 1) % Q  # periodic boundary conditions
-right_neighbor_id = (reservoir_id - 1) % Q
+left_neighbor_id = (reservoir_id - 1) % g  # periodic boundary conditions
+right_neighbor_id = (reservoir_id + 1) % g
 left_input_buffer = np.empty(l*d)
 right_input_buffer = np.empty(l*d)
 
@@ -79,6 +85,8 @@ for t in range(h.prediction_steps):  # closed loop with parallel reservoirs
                 + h.leakage * h.activation_func(A @ res_state \
                                                 + W_in @ inputs \
                                                 + h.bias)
+    if reservoir_id == 0:
+        print(t, flush=True)
 
 ## Gathering predictions in the root (rank 0) process ##
 predictions = np.empty((g, h.prediction_steps, q*d)) if (reservoir_id == 0) else None  # shape (g x T x q*d)
@@ -86,4 +94,4 @@ new_comm.Gather(local_predictions, predictions, root=0)
 
 if reservoir_id == 0:
     predictions = np.swapaxes(predictions, 0, 1).reshape((h.prediction_steps, Q, d))  # reshape to (T x Q x d) (Q=gq)
-    np.save('predictions.npy', predictions)
+    np.save('predictions/predictions.npy', predictions)
