@@ -1,5 +1,5 @@
 """
-Aims to implement a parallelized parallel RC architecture for forecasting spatiotemporal chaos.
+Aims to implement a parallelized parallel RC architecture for forecasting spatiotemporal dynamics.
 
 To run, first install mpi4py in your conda environment (`conda install -c conda-forge mpi4py openmpi`), then run
 `mpiexec -n 4 python filename.py`
