@@ -90,11 +90,11 @@ def train_RC(input_data, h: Hyperparameters, train_targets=None):
 def predict(W_out, A, W_in, training_res_states, h: Hyperparameters):
     """Closed loop prediction"""
     predictions = np.zeros((h.prediction_steps, h.num_inputs))
-    rt = training_res_states[-1]
+    res_state = training_res_states[-1]
     for t in range(h.prediction_steps):
-        predictions[t] = W_out @ rt
-        rt = (1 - h.leakage) * rt \
-             + h.leakage * h.activation_func(A @ rt \
+        predictions[t] = W_out @ res_state
+        res_state = (1 - h.leakage) * res_state \
+             + h.leakage * h.activation_func(A @ res_state \
                                              + W_in @ predictions[t] \
                                              + h.bias)
     return predictions

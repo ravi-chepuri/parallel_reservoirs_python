@@ -15,7 +15,8 @@ rank = comm.Get_rank()
 
 if rank == 2: sys.exit(0)
 
-new_group = comm.group.Excl([2])  # a group excluding the terminated process
+new_group = comm.group.Excl(np.array([2]))  # a group excluding the terminated process(es)
+# new_group = comm.group.Incl(np.array([0, 1, 3]))  # alternatively, a group including only the non-terminated process(es)
 new_comm = comm.Create_group(new_group)  # an Intracomm (just like comm) corresponding to the new group
 new_rank = new_comm.Get_rank()
 new_size = new_comm.Get_size()
