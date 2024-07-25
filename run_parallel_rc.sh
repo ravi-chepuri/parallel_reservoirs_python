@@ -4,7 +4,7 @@
 #SBATCH --partition=standard            ## no special requirements -> standard
 #SBATCH --time=0-00:01:00               ## wall time (D-HH:MM:SS)
 #
-#SBATCH --ntasks=32                     ## number of tasks
+#SBATCH --ntasks=16                     ## number of tasks
 #SBATCH --cpus-per-task=1               ## number of CPUs per task
 #
 #SBATCH --mem-per-cpu=4096              ## memory per CPU (MiB)
@@ -18,4 +18,4 @@
 
 conda activate parallel_env  ## have installed mpi4py in this env with `conda install -c conda-forge mpi4py openmpi`
 
-mpiexec -n 32 python parallel_rc.py
+mpiexec -n $SLURM_NTASKS python parallel_rc.py

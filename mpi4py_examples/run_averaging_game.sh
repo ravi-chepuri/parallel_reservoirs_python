@@ -16,12 +16,6 @@
 
 . ~/.bashrc
 
-echo "hoy"
-
 conda activate parallel_env  ## have installed mpi4py in this env with `conda install -c conda-forge mpi4py openmpi`
 
-echo "hi"
-
 mpiexec -n 4 python averaging_game.py
-
-echo "hey"

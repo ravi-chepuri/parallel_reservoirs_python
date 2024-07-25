@@ -18,7 +18,7 @@ rank = comm.Get_rank()  # process number
 size = comm.Get_size()  # total number of processes
 
 # data
-data = np.load('kuramoto_sivashinsky/trajectories/trajectory_0.npy')
+data = np.load('kuramoto_sivashinsky/trajectories_L100_Q128/trajectory_0.npy')
 discard_system_transient_length = 500
 data = data[discard_system_transient_length:]
 T, Q, d = data.shape  # number of time steps, number of spatial 1D grid points, dimension of system at each grid point
@@ -26,8 +26,8 @@ num_training_timesteps = 20000
 train_data, test_data = np.vsplit(data, [num_training_timesteps])
 
 # parallel RC specifications
-q = 2  # number of contiguous grid points per reservoir
-l = 1  # number of spatial points in the contiguous input overlap regions
+q = 8  # number of contiguous grid points per reservoir
+l = 6  # number of spatial points in the contiguous input overlap regions
 
 # checks
 assert Q % q == 0, "Number of grid points is not a multiple of group size"
@@ -53,7 +53,7 @@ train_inputs = train_inputs.reshape((-1, (q+2*l)*d))
 train_targets = train_targets.reshape((-1, q*d))
 
 h = rc.Hyperparameters(num_inputs=(q+2*l)*d,
-                       N=1000, degree=3, radius=0.6, leakage=1., bias=0.1, sigma=0.1, beta=0.01, 
+                       N=4000, degree=3, radius=0.6, leakage=1., bias=1., sigma=0.1, beta=1e-6, 
                     #    beta=0.00003,
                        discard_transient_length=100, activation_func=np.tanh,
                        dt=0.25,
@@ -95,3 +95,5 @@ new_comm.Gather(local_predictions, predictions, root=0)
 if reservoir_id == 0:
     predictions = np.swapaxes(predictions, 0, 1).reshape((h.prediction_steps, Q, d))  # reshape to (T x Q x d) (Q=gq)
     np.save('predictions/predictions.npy', predictions)
+
+print(f'[reservoir {reservoir_id}, rank {rank}] still alive', file=sys.stderr)
