@@ -18,7 +18,7 @@ rank = comm.Get_rank()  # process number
 size = comm.Get_size()  # total number of processes
 
 # data
-data = np.load('kuramoto_sivashinsky/trajectories_L100_Q128/trajectory_0.npy')
+data = np.load('kuramoto_sivashinsky/trajectories/trajectory_0.npy')
 discard_system_transient_length = 500
 data = data[discard_system_transient_length:]
 T, Q, d = data.shape  # number of time steps, number of spatial 1D grid points, dimension of system at each grid point
