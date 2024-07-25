@@ -1,8 +1,7 @@
 """
 Aims to implement a parallelized parallel RC architecture for forecasting spatiotemporal dynamics.
 
-To run, first install mpi4py in your conda environment (`conda install -c conda-forge mpi4py openmpi`), then run
-`mpiexec -n 4 python filename.py`
+To run, launch on a cluster with `sbatch run_parallel_rc.sh`.
 """
 
 import sys
@@ -20,9 +19,9 @@ size = comm.Get_size()  # total number of processes
 # data
 data = np.load('kuramoto_sivashinsky/trajectories/trajectory_0.npy')
 discard_system_transient_length = 500
+num_training_timesteps = 20000
 data = data[discard_system_transient_length:]
 T, Q, d = data.shape  # number of time steps, number of spatial 1D grid points, dimension of system at each grid point
-num_training_timesteps = 20000
 train_data, test_data = np.vsplit(data, [num_training_timesteps])
 
 # parallel RC specifications
@@ -54,7 +53,6 @@ train_targets = train_targets.reshape((-1, q*d))
 
 h = rc.Hyperparameters(num_inputs=(q+2*l)*d,
                        N=4000, degree=3, radius=0.6, leakage=1., bias=1., sigma=0.1, beta=1e-6, 
-                    #    beta=0.00003,
                        discard_transient_length=100, activation_func=np.tanh,
                        dt=0.25,
                        train_length=num_training_timesteps, prediction_steps=2000)
@@ -95,5 +93,3 @@ new_comm.Gather(local_predictions, predictions, root=0)
 if reservoir_id == 0:
     predictions = np.swapaxes(predictions, 0, 1).reshape((h.prediction_steps, Q, d))  # reshape to (T x Q x d) (Q=gq)
     np.save('predictions/predictions.npy', predictions)
-
-print(f'[reservoir {reservoir_id}, rank {rank}] still alive', file=sys.stderr)
