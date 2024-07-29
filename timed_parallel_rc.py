@@ -9,7 +9,7 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-from rc import train_RC, Hyperparameters
+from rc import make_input_matrix, make_reservoir, run_open_loop, fit_output_weights, Hyperparameters
 
 
 def forecast_spatiotemporal_system(train_data, hyperparams, Q=128, d=1, q=8, l=6):
@@ -51,8 +51,7 @@ def forecast_spatiotemporal_system(train_data, hyperparams, Q=128, d=1, q=8, l=6
     reservoir_id = new_comm.Get_rank()
 
     ## Training ##
-    if reservoir_id == 0: 
-        start_train_time = MPI.Wtime()
+    start_train_time = MPI.Wtime()
     grid_points = np.arange(reservoir_id * q, (reservoir_id+1) * q)  # q grid points that reservoir predicts
     input_grid_points = np.arange(reservoir_id * q - l, (reservoir_id+1) * q + l) % Q  # q+2l grid points used as input
     train_inputs = train_data[:, input_grid_points, :]
@@ -60,18 +59,24 @@ def forecast_spatiotemporal_system(train_data, hyperparams, Q=128, d=1, q=8, l=6
     # flatten the system dimensions so now every d entries in the 2nd dimension is a grid point
     train_inputs = train_inputs.reshape((-1, (q+2*l)*d))
     train_targets = train_targets.reshape((-1, q*d))
-    W_out, A, W_in, training_res_states = train_RC(train_inputs, hyperparams, train_targets=train_targets)
+
+    A = make_reservoir(hyperparams)
+    W_in = make_input_matrix(hyperparams)
+    start_open_loop_time = MPI.Wtime()
+    training_res_states = run_open_loop(A, W_in, train_inputs, hyperparams)
+    end_open_loop_time = MPI.Wtime()
+    res_states_for_fit = training_res_states[hyperparams.discard_transient_length:-1]
+    targets_for_fit = train_targets[hyperparams.discard_transient_length+1:hyperparams.train_length]
+    start_fit_time = MPI.Wtime()
+    W_out = fit_output_weights(res_states_for_fit, targets_for_fit, hyperparams)
+    end_fit_time = MPI.Wtime()
+    end_train_time = MPI.Wtime()
 
     new_comm.Barrier()
-    if reservoir_id == 0:
-        end_train_time = MPI.Wtime()
-        print(f'Total train time (s): {end_train_time - start_train_time}')
-
 
     ## Forecasting ##
-    if reservoir_id == 0: 
-        start_forecast_time = MPI.Wtime()
-        communication_wait_times = np.empty(hyperparams.prediction_steps)
+    start_forecast_time = MPI.Wtime()
+    communication_wait_times = np.empty(hyperparams.prediction_steps)
     left_neighbor_id = (reservoir_id - 1) % g  # periodic boundary conditions
     right_neighbor_id = (reservoir_id + 1) % g
     left_input_buffer = np.empty(l*d)
@@ -83,16 +88,14 @@ def forecast_spatiotemporal_system(train_data, hyperparams, Q=128, d=1, q=8, l=6
         # Make prediction from past reservoir state
         local_predictions[t] = W_out @ res_state
         # Send predictions that are in neighbors' overlap regions to the neighbors
-        if reservoir_id == 0: 
-            start_communication_time = MPI.Wtime()
+        start_communication_time = MPI.Wtime()
         new_comm.Send(local_predictions[t, :l*d], dest=left_neighbor_id, tag=t)
         new_comm.Send(local_predictions[t, -l*d:], dest=right_neighbor_id, tag=t)
         # Receive predictions in our own overlap regions from the neighbors
         new_comm.Recv(left_input_buffer, source=left_neighbor_id, tag=t)
         new_comm.Recv(right_input_buffer, source=right_neighbor_id, tag=t)
-        if reservoir_id == 0: 
-            end_communication_time = MPI.Wtime()
-            communication_wait_times[t] = end_communication_time - start_communication_time
+        end_communication_time = MPI.Wtime()
+        communication_wait_times[t] = end_communication_time - start_communication_time
         # Combine received predictions with own predictions
         inputs = np.hstack([left_input_buffer, local_predictions[t], right_input_buffer])
         # Update res_state
@@ -104,17 +107,28 @@ def forecast_spatiotemporal_system(train_data, hyperparams, Q=128, d=1, q=8, l=6
     # gather predictions in the root (rank 0) process
     predictions = np.empty((g, hyperparams.prediction_steps, q*d)) if (reservoir_id == 0) else None  # (g x T x q*d)
     new_comm.Gather(local_predictions, predictions, root=0)
+    end_forecast_time = MPI.Wtime()
+
+    # gather timing info in the root process
+    local_timing_info = np.array([end_train_time - start_train_time,
+                                  end_open_loop_time - start_open_loop_time,
+                                  end_fit_time - start_fit_time,
+                                  end_forecast_time - start_forecast_time,
+                                  np.sum(communication_wait_times)])
+    timing_info = np.empty((g, *local_timing_info.shape)) if (reservoir_id == 0) else None
+    new_comm.Gather(local_timing_info, timing_info, root=0)
+
+    if reservoir_id == 0:
+        mean_timing_info = np.mean(timing_info, axis=0)
+        print(f'Mean total train time (s): {mean_timing_info[0]:.6f}')
+        print(f'\tMean total open loop time (s): {mean_timing_info[1]:.6f}')
+        print(f'\tMean total fitting time (s): {mean_timing_info[2]:.6f}')
+        print(f'Mean total forecast time (s): {mean_timing_info[3]:.6f}')
+        print(f'\tMean total communication wait time (s): {mean_timing_info[4]:.6f}')
 
     if reservoir_id == 0:
         # reshape to (T x Q x d) (Q=gq)
-        predictions = np.swapaxes(predictions, 0, 1).reshape((hyperparams.prediction_steps, Q, d))
-        end_forecast_time = MPI.Wtime()
-        total_forecast_time = end_forecast_time - start_forecast_time
-        total_communication_wait_time = np.sum(communication_wait_times)
-        print(f'Total forecast time (s): {total_forecast_time}')
-        print(f'Total communication wait time (s): {total_communication_wait_time}')
-        print(f'Fraction of forecast time spend communicating: {total_communication_wait_time / total_forecast_time}')
-        return predictions
+        return np.swapaxes(predictions, 0, 1).reshape((hyperparams.prediction_steps, Q, d))
     else:
         return None
 
@@ -134,13 +148,13 @@ if __name__ == '__main__':
     l = 6  # number of spatial points in the contiguous input overlap regions
 
     # set forecasting hyperparameters
-    h = Hyperparameters(num_inputs=(q+2*l)*d,
+    hyperparams = Hyperparameters(num_inputs=(q+2*l)*d,
                        N=4000, degree=3, radius=0.6, leakage=1., bias=1., sigma=0.1, beta=1e-6, 
                        discard_transient_length=100, activation_func=np.tanh,
                        dt=0.25,
                        train_length=num_training_timesteps, prediction_steps=2000)
     
-    predictions = forecast_spatiotemporal_system(train_data, h, Q=Q, d=d, q=q, l=l)
+    predictions = forecast_spatiotemporal_system(train_data, hyperparams, Q=Q, d=d, q=q, l=l)
 
     if predictions is not None:
         np.save('predictions/predictions.npy', predictions)

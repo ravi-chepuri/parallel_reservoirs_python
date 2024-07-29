@@ -35,7 +35,7 @@ def _rescale_matrix(A, spectral_radius):
     return(A_scaled)
 
 
-def _make_reservoir(h: Hyperparameters):
+def make_reservoir(h: Hyperparameters):
     rng = default_rng()
     nonzero_mat = rng.random((h.N, h.N)) < h.degree / h.N
     random_weights_mat = -1 + 2 * rng.random((h.N, h.N)) # uniform distribution on [-1, 1] at each matrix element
@@ -46,16 +46,16 @@ def _make_reservoir(h: Hyperparameters):
         sA_rescaled = _rescale_matrix(sA, h.radius)
         return sA_rescaled
     except linalg.eigen.arpack.ArpackNoConvergence:
-        return _make_reservoir(h)
+        return make_reservoir(h)
         
 
-def _make_input_matrix(h: Hyperparameters):
+def make_input_matrix(h: Hyperparameters):
     rng = default_rng()
     W_in = h.sigma * (-1 + 2 * rng.random((h.N, h.num_inputs)))
     return W_in
 
 
-def _run_open_loop(A, W_in, input_data, h: Hyperparameters):
+def run_open_loop(A, W_in, input_data, h: Hyperparameters):
     """TODO"""
     res_states = np.zeros((h.train_length, h.N))
     for t in range(h.train_length - 1):
@@ -66,7 +66,7 @@ def _run_open_loop(A, W_in, input_data, h: Hyperparameters):
     return res_states
 
 
-def _fit_output_weights(res_states, targets, h: Hyperparameters):
+def fit_output_weights(res_states, targets, h: Hyperparameters):
     """TODO"""
     clf = Ridge(alpha=h.beta, fit_intercept=False, solver='cholesky')
     clf.fit(res_states, targets)
@@ -78,12 +78,12 @@ def train_RC(input_data, h: Hyperparameters, train_targets=None):
     """TODO"""
     if train_targets is None:
         train_targets = input_data
-    A = _make_reservoir(h)
-    W_in = _make_input_matrix(h)
-    res_states = _run_open_loop(A, W_in, input_data, h)
+    A = make_reservoir(h)
+    W_in = make_input_matrix(h)
+    res_states = run_open_loop(A, W_in, input_data, h)
     res_states_for_fit = res_states[h.discard_transient_length:-1]
     targets_for_fit = train_targets[h.discard_transient_length+1:h.train_length]
-    W_out = _fit_output_weights(res_states_for_fit, targets_for_fit, h)
+    W_out = fit_output_weights(res_states_for_fit, targets_for_fit, h)
     return W_out, A, W_in, res_states
 
 
