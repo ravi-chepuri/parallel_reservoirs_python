@@ -18,4 +18,5 @@
 
 conda activate parallel_env  ## have installed mpi4py in this env with `conda install -c conda-forge mpi4py openmpi`
 
-mpiexec -n $SLURM_NTASKS python parallel_rc.py
+srun --export=ALL python parallel_rc.py
+## --export=ALL needed so that processes on any new compute nodes also have conda env activated

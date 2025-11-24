@@ -18,4 +18,5 @@
 
 conda activate parallel_env  ## have installed mpi4py in this env with `conda install -c conda-forge mpi4py openmpi`
 
-mpiexec -n 4 python averaging_game.py
+srun --export=ALL python averaging_game.py  
+## --export=ALL needed so that processes on any new compute nodes also have conda env activated

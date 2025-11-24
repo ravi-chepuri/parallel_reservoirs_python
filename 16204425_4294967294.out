@@ -1,0 +1,5 @@
+Mean total train time (s): 18.026107
+	Mean total open loop time (s): 3.084478
+	Mean total fitting time (s): 13.954094
+Mean total forecast time (s): 0.409474
+	Mean total communication wait time (s): 0.083839

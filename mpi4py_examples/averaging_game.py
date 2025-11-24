@@ -22,6 +22,9 @@ from mpi4py import MPI
 import numpy as np
 import networkx as nx
 
+import socket, sys
+print("Hello from host", socket.gethostname(), "python:", sys.executable, flush=True)
+
 comm = MPI.COMM_WORLD
 my_agent_id = comm.Get_rank()  # process number. Thruout, `my_...` indicates variable that I expect to be different for
                                # each process
